@@ -21,6 +21,18 @@ public class OrderRepository {
     public Order findOne(Long id){
         return em.find(Order.class, id);
     }
+
     // 검색 기능. 일단 보류
-    //public List<Order> findAll(OrderSearch orderSearch){}
+    public List<Order> findAll(OrderSearch orderSearch){
+
+        return em.createQuery("select o from Order o join o.member m" +
+                " where o.status = :status" +
+                " and m.name like :name", Order.class)
+                .setParameter("status",orderSearch.getOrderStatus())
+                .setParameter("name",orderSearch.getMemberName())
+                //.setFirstResult(100) 페이징처리/ 100부터 1000까지 가져온다는 뜻
+                .setMaxResults(1000) // 최대 1000개
+                .getResultList();
+    }
+
 }

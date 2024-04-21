@@ -1,5 +1,6 @@
 package jpabook.jpashop.service;
 
+import jpabook.jpashop.domain.item.Book;
 import jpabook.jpashop.domain.item.Item;
 import jpabook.jpashop.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,20 @@ public class ItemService {
         itemRepository.save(item);
     }
 
-    public List<Item> findItem(){
+    /*
+        변경기능 감지 영속성 컨텍스트에서 엔티티를 다시 조회한 후에 데이터를 수정하는 방법
+        트랜잭션 안에서 엔티티를 조회, 변경할 값을 선택 -> 트랜잭션 커밋 시점에 변경감지가 동작
+        해서 db에 update sql 실행
+     */
+    @Transactional
+    public void updateItem(Long itemId, String name, int price, int stockQuantity){
+        Item findItem = itemRepository.findOne(itemId);
+        findItem.setName(name);
+        findItem.setPrice(price);
+        findItem.setStockQuantity(stockQuantity);
+    }
+
+    public List<Item> findItems(){
         return itemRepository.findAll();
     }
 
