@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -54,6 +55,35 @@ public class OrderApiController {
 
         return collect;
     }
+    /*
+        V3: fetch join으로 SQL이 1번만 실행됨
+         - distinct를 사용한 이유는 1대다 조인이 있으므로 일어나는 중복을 줄여줌
+         - 1대다 fetch join을 하면 페이징처리가 불가능하다.
+         - 1대다 fetch join은 1개만 사용 할 수 있다. 둘이상 사용 할 시 데이터가 부정합하게 조회 될 수 있다.
+     */
+    @GetMapping("/api/v3/orders")
+    public List<OrderDTO> ordersV3(){
+        List<Order> orders = orderRepository.findAllwithItem();
+        List<OrderDTO> collect = orders.stream()
+                .map(o -> new OrderDTO(o))
+                .collect(Collectors.toList());
+
+        return collect;
+    }
+
+    @GetMapping("/api/v3.1/orders")
+    public List<OrderDTO> ordersV3_page(
+            @RequestParam(value = "offset", defaultValue = "0") int offset,
+            @RequestParam(value = "limit", defaultValue = "100") int limit)
+    {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery(offset, limit);
+        List<OrderDTO> collect = orders.stream()
+                .map(o -> new OrderDTO(o))
+                .collect(Collectors.toList());
+
+        return collect;
+    }
+
     @Data
     static class OrderDTO {
         private Long orderId;
@@ -64,8 +94,7 @@ public class OrderApiController {
         private List<OrderItemDTO> orderItems;
         public OrderDTO(Order order) {
             orderId = order.getId();
-            name
-                    = order.getMember().getName();
+            name = order.getMember().getName();
             orderDate = order.getOrderDate();
             orderStatus = order.getStatus();
             address = order.getDelivery().getAddress();
