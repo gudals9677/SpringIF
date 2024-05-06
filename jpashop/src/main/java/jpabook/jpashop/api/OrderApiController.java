@@ -6,6 +6,9 @@ import jpabook.jpashop.domain.OrderItem;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import jpabook.jpashop.repository.order.query.OrderFlatDTO;
+import jpabook.jpashop.repository.order.query.OrderQueryDTO;
+import jpabook.jpashop.repository.order.query.OrderQueryRepository;
 import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ import java.util.stream.Collectors;
 public class OrderApiController {
 
     private final OrderRepository orderRepository;
+    private final OrderQueryRepository orderQueryRepository;
 
     /*
         V1: 엔티티 직접 노출
@@ -70,7 +74,11 @@ public class OrderApiController {
 
         return collect;
     }
-
+    /*
+        - ToOne 관계는 fetch join해도 페이징에 영향을 주지않는다. 따라서 ToOne은 fetch join으로 쿼리 수를 줄이고, 나머지는 hibernate.defalut.batch_fetch_size로 최적화하자.
+        - hibernate.defalut.batch_fetch_size의 size는 100~1000을 권장
+        - @BatchSize는 다(N)인 엔티티에 직접 개별 설정
+     */
     @GetMapping("/api/v3.1/orders")
     public List<OrderDTO> ordersV3_page(
             @RequestParam(value = "offset", defaultValue = "0") int offset,
@@ -82,6 +90,38 @@ public class OrderApiController {
                 .collect(Collectors.toList());
 
         return collect;
+    }
+
+    /*
+        V4: Query는 루트1번, 컬렉션 N번 실행
+         - ToOne 관계들을 먼저 조회하고, ToMany 관계는 각각 별도로 처리한다.
+            - ToOne 관게는 조인해도 데이터 row수가 증가하지 않는다.
+            - ToMany 관계는 조인하면 row 수가 증가한다.
+         - row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고, ToMany 관계는
+            최적화 하기 어려우므로 findOrderItems()같은 별도의 메서드로 조회한다.
+     */
+    @GetMapping("/api/v4/orders")
+    public List<OrderQueryDTO> ordersV4(){
+        return orderQueryRepository.findOrderQueryDTOs();
+    }
+    /*
+        V5: Query는 루트1번 ,컬렉션 1번
+         - ToOne 관계들을 먼저 조회하고, 여기서 얻은 식별자 orderId로 ToMany 관계는 OrderItem을 한꺼번에 조회
+         - Map을 사용해서 매칭 성능 향상
+     */
+    @GetMapping("/api/v5/orders")
+    public List<OrderQueryDTO> ordersV5(){
+        return orderQueryRepository.findAllByDTO_optimiztion();
+    }
+    /*
+        V6: Query는 1번
+         - 단점
+          - 쿼리는 한번이지만 조인으로 인해 DB에서 전달하는 데이터가 중복되므로 V5보다 느릴 수 있다.
+          - 페이징 불가능
+     */
+    @GetMapping("/api/v6/orders")
+    public List<OrderFlatDTO> ordersV6(){
+        return orderQueryRepository.findAllByDTO_flat();
     }
 
     @Data
